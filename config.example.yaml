@@ -1,0 +1,58 @@
+# Muza-Proxy Configuration Example
+
+# Default backend server for unmatched paths
+default_server: "http://localhost:8080"
+
+# Global settings
+timeout: 30
+max_retries: 3
+log_level: "INFO"
+
+# Proxy path configurations
+proxy_paths:
+  # Public API - no authentication required
+  - path: "/api/metadata"
+    server: "http://localhost:5000"
+    require_bearer: false
+    headers:
+      X-Service: "public-api"
+
+  # Public API - no authentication required
+  - path: "/api/upload"
+    server: "http://localhost:5002"
+    require_bearer: false
+    headers:
+      X-Service: "public-api"
+
+  # User API - requires user or admin audience
+  - path: "/api/user"
+    server: "http://localhost:3001"
+    require_bearer: true
+    valid_audiences: ["user", "admin"]
+    headers:
+      X-Service: "user-api"
+      X-Auth-Required: "true"
+  
+  # Admin API - requires admin audience only
+  - path: "/api/admin"
+    server: "http://localhost:4000"
+    require_bearer: true
+    valid_audiences: ["admin"]
+    timeout: 60
+    headers:
+      X-Service: "admin-api"
+      X-Admin-Access: "true"
+  
+  # Health check endpoint - no auth required
+  - path: "/health"
+    server: "http://localhost:3000"
+    require_bearer: false
+    headers:
+      X-Service: "health-check"
+  
+  # Any authenticated user (no specific audience required)
+  - path: "/api/profile"
+    server: "http://localhost:3002"
+    require_bearer: true
+    headers:
+      X-Service: "profile-api"
