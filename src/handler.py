@@ -25,7 +25,15 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 "httpx.Client not found on server instance. "
                 "ProxyHandler expects a shared client via server.http_client."
             )
-            pass  # Or raise an error: raise AttributeError("server.http_client is not set")
+
+            # Create httpx client with connection pooling and timeouts
+            self.http_client = httpx.Client(
+                timeout=httpx.Timeout(30.0),
+                limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
+                http2=True,  # Enable HTTP/2 support
+                verify=True,
+            )
+
         self.http_client = server.http_client
 
         super().__init__(request, client_address, server)
