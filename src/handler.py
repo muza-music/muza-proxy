@@ -20,21 +20,13 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self.auth_manager = AuthenticationManager(server.jwt_validator)
         self.logger = logging.getLogger(__name__)
 
-        if not hasattr(server, "http_client"):
-            self.logger.error(
-                "httpx.Client not found on server instance. "
-                "ProxyHandler expects a shared client via server.http_client."
-            )
-
-            # Create httpx client with connection pooling and timeouts
-            self.http_client = httpx.Client(
-                timeout=httpx.Timeout(30.0),
-                limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
-                http2=True,  # Enable HTTP/2 support
-                verify=True,
-            )
-
-        self.http_client = server.http_client
+        # Create httpx client with connection pooling and timeouts
+        self.http_client = httpx.Client(
+            timeout=httpx.Timeout(30.0),
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
+            http2=True,  # Enable HTTP/2 support
+            verify=True,
+        )
 
         super().__init__(request, client_address, server)
 
@@ -284,3 +276,11 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(response_data)))
         self.end_headers()
         self.wfile.write(response_data.encode("utf-8"))
+
+    def __del__(self):
+        """Clean up httpx client"""
+        try:
+            if hasattr(self, "http_client"):
+                self.http_client.close()
+        except Exception:
+            pass
