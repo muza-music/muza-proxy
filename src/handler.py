@@ -20,13 +20,26 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self.auth_manager = AuthenticationManager(server.jwt_validator)
         self.logger = logging.getLogger(__name__)
 
-        # Create httpx client with connection pooling and timeouts
-        self.http_client = httpx.Client(
-            timeout=httpx.Timeout(30.0),
-            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
-            http2=True,  # Enable HTTP/2 support
-            verify=True,
-        )
+        # Use the shared httpx client from the server instance
+        # This assumes the server (passed as 'server') has an attribute 'http_client'
+        # e.g., self.server.http_client, which is an initialized httpx.Client.
+        # The server is responsible for creating this client and managing its lifecycle (closing it on shutdown).
+        if not hasattr(server, "http_client"):
+            # Fallback or error if the server doesn't provide a client.
+            # This indicates a setup issue in the server, not the handler.
+            # For robustness in case of misconfiguration, we could log an error
+            # or raise an exception. For now, we'll proceed, but it will likely fail later.
+            # A better approach is to ensure the server always provides it.
+            self.logger.error(
+                "httpx.Client not found on server instance. "
+                "ProxyHandler expects a shared client via server.http_client."
+            )
+            # To prevent immediate failure, a temporary client could be created,
+            # but this defeats the purpose of sharing.
+            # For this example, we'll assume it will be provided.
+            # If not, attribute errors will occur when self.http_client is used.
+            pass  # Or raise an error: raise AttributeError("server.http_client is not set")
+        self.http_client = server.http_client
 
         super().__init__(request, client_address, server)
 
@@ -276,11 +289,3 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(response_data)))
         self.end_headers()
         self.wfile.write(response_data.encode("utf-8"))
-
-    def __del__(self):
-        """Clean up httpx client"""
-        try:
-            if hasattr(self, "http_client"):
-                self.http_client.close()
-        except Exception:
-            pass
