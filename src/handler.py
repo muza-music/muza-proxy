@@ -48,26 +48,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
         if self._connection_broken:
             return False
         
-        try:
-            # Try to peek at the socket to see if it's still connected
-            if hasattr(self.request, '_sock'):
-                sock = self.request._sock
-            else:
-                sock = self.request
-            
-            if hasattr(sock, 'recv'):
-                # Use MSG_PEEK to check without consuming data
-                try:
-                    data = sock.recv(1, socket.MSG_PEEK | socket.MSG_DONTWAIT)
-                    return True
-                except (socket.error, ssl.SSLError, BlockingIOError):
-                    self._connection_broken = True
-                    return False
-            return True
-        except Exception as e:
-            self.logger.debug(f"Connection check failed: {e}")
-            self._connection_broken = True
-            return False
+        return True
 
     def _safe_send_response(self, status_code):
         """Safely send response status"""
@@ -75,9 +56,6 @@ class ProxyHandler(BaseHTTPRequestHandler):
             return False
         
         try:
-            if not self._check_connection():
-                return False
-            
             self.send_response(status_code)
             self._response_started = True
             return True
@@ -96,9 +74,6 @@ class ProxyHandler(BaseHTTPRequestHandler):
             return False
         
         try:
-            if not self._check_connection():
-                return False
-            
             self.send_header(name, value)
             return True
         except (socket.error, ssl.SSLError, BrokenPipeError, ConnectionResetError) as e:
@@ -116,9 +91,6 @@ class ProxyHandler(BaseHTTPRequestHandler):
             return False
         
         try:
-            if not self._check_connection():
-                return False
-            
             self.end_headers()
             self._headers_sent = True
             return True
@@ -137,9 +109,6 @@ class ProxyHandler(BaseHTTPRequestHandler):
             return False
         
         try:
-            if not self._check_connection():
-                return False
-            
             if isinstance(data, str):
                 data = data.encode('utf-8')
             
